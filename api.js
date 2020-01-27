@@ -11,7 +11,6 @@ app.post('/', (req, res) => {
 	console.log(req.body.number)
 
 	res.send({
-		from: 'API',
 		value: req.body.number * 2
 	})
 })

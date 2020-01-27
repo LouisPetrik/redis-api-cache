@@ -14,26 +14,22 @@ app.get('/', (req, res) => {
 })
 
 app.post('/', (req, res) => {
-	client.exists(req.body.number, (error, value) => {
+	let number = req.body.number
+	client.exists(number, (error, value) => {
 		if (value) {
-			console.log('vorhanden')
-			client.get(req.body.number, (error, value) => {
+			client.get(number, (error, value) => {
 				res.redirect('/done?value=' + value + '&from=cache')
 			})
 		} else {
 			axios
 				.post('http://localhost:3000/', {
-					number: req.body.number
+					number: number
 				})
 				.then(function(response) {
-					client.set(req.body.number, response.data.value)
-					client.expire(req.body.number, 60)
-					res.redirect(
-						'/done?value=' +
-							response.data.value +
-							'&from=' +
-							response.data.from
-					)
+					let result = response.data.value
+					client.set(number, result)
+					client.expire(number, 60)
+					res.redirect('/done?value=' + result + '&from=API')
 				})
 				.catch(function(error) {
 					console.log(error)
@@ -48,7 +44,9 @@ app.get('/done', (req, res) => {
       <head>
       </head>
       <body>
-      The value is: ${req.query.value}
+      The Result is: ${req.query.value}
+      <br/>
+      So the original value is ${req.query.value / 2}
       <br/>
       And comes from: ${req.query.from}
       </body>
@@ -57,34 +55,3 @@ app.get('/done', (req, res) => {
 })
 
 app.listen(8080)
-/*
-
-// key hi für wert there speichern
-client.set('hi', 'there')
-
-// den key nach 10 sekunden expiren, also löschen lassen:
-client.expire('hi', 10)
-
-// ausgeben, wie lange der key noch vorhanden sein wird. Minus bedeutet, ist bereits gelöscht
-client.ttl('hi', (error, value) => {
-	console.log(value)
-})
-
-// wenn key existiert, wird 1, ansonsten 0 ausgegeben
-client.exists('hi', (error, value) => {
-	if (value) {
-		console.log('vorhanden')
-	} else {
-		console.log('nicht vorhanden')
-	}
-})
-
-// wert ausgeben, der zu dem key "hi" gehört, falls keiner besteht wird null ausgegeben
-client.get('hi', (error, value) => {
-	console.log(value)
-})
-
-// key mit zugehörigem wert permanent löschen:
-client.del('hi')
-
-*/
