@@ -1,12 +1,10 @@
 const express = require('express')
 const app = express()
 const redis = require('redis')
-const request = require('request')
 const bodyParser = require('body-parser')
-const redisURL = 'redis://localhost:6379'
 const cors = require('cors')
 const axios = require('axios')
-const client = redis.createClient(redisURL)
+const client = redis.createClient('redis://localhost:6379')
 
 app.use(cors())
 app.use(bodyParser.urlencoded({ extended: true }))
@@ -16,32 +14,44 @@ app.get('/', (req, res) => {
 })
 
 app.post('/', (req, res) => {
-	// das ganze muss async oder callback
-
-	axios
-		.post('http://localhost:3000/', {
-			number: req.body.number
-		})
-		.then(function(response) {
-			res.redirect(
-				'/done?value=' + response.data.value + '&from=' + response.data.from
-			)
-		})
-		.catch(function(error) {
-			console.log(error)
-		})
+	client.exists(req.body.number, (error, value) => {
+		if (value) {
+			console.log('vorhanden')
+			client.get(req.body.number, (error, value) => {
+				res.redirect('/done?value=' + value + '&from=cache')
+			})
+		} else {
+			axios
+				.post('http://localhost:3000/', {
+					number: req.body.number
+				})
+				.then(function(response) {
+					client.set(req.body.number, response.data.value)
+					client.expire(req.body.number, 60)
+					res.redirect(
+						'/done?value=' +
+							response.data.value +
+							'&from=' +
+							response.data.from
+					)
+				})
+				.catch(function(error) {
+					console.log(error)
+				})
+		}
+	})
 })
 
 app.get('/done', (req, res) => {
 	res.send(`
    <html>
-   <head>
-   </head>
-   <body>
-     The value is: ${req.query.value}
-     <br/>
-     And comes from: ${req.query.from}
-   </body>
+      <head>
+      </head>
+      <body>
+      The value is: ${req.query.value}
+      <br/>
+      And comes from: ${req.query.from}
+      </body>
    </html>
    `)
 })
