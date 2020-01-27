@@ -13,27 +13,41 @@ app.get('/', (req, res) => {
 	res.sendFile(__dirname + '/index.html')
 })
 
+// both functions get the original number from the user input, and the res object
+// from express, to make a redirect to another URL as params
+const getResultFromCache = (number, res) => {
+	client.get(number, (error, result) => {
+		res.redirect('/done?result=' + result + '&from=cache')
+	})
+}
+
+const getResultFromAPI = (number, res) => {
+	axios
+		.post('http://localhost:3000/', {
+			number: number
+		})
+		.then(response => {
+			let result = response.data.result
+			// when receiving the result from API, original number from the user input and the result will be stored in the CACHE
+			client.set(number, result)
+			// the cache entry will be deleted after 60 sec, automatically
+			client.expire(number, 60)
+			res.redirect('/done?result=' + result + '&from=API')
+		})
+		.catch(error => {
+			console.log(error)
+		})
+}
+
 app.post('/', (req, res) => {
 	let number = req.body.number
-	client.exists(number, (error, value) => {
-		if (value) {
-			client.get(number, (error, value) => {
-				res.redirect('/done?value=' + value + '&from=cache')
-			})
+	// if the original number and the result are already stored, result will be true
+	client.exists(number, (error, result) => {
+		if (result) {
+			getResultFromCache(number, res)
+			// else we will make a request to the API
 		} else {
-			axios
-				.post('http://localhost:3000/', {
-					number: number
-				})
-				.then(function(response) {
-					let result = response.data.value
-					client.set(number, result)
-					client.expire(number, 60)
-					res.redirect('/done?value=' + result + '&from=API')
-				})
-				.catch(function(error) {
-					console.log(error)
-				})
+			getResultFromAPI(number, res)
 		}
 	})
 })
@@ -44,9 +58,9 @@ app.get('/done', (req, res) => {
       <head>
       </head>
       <body>
-      The Result is: ${req.query.value}
+      The Result is: ${req.query.result}
       <br/>
-      So the original value is ${req.query.value / 2}
+      So the original value is ${req.query.result / 2}
       <br/>
       And comes from: ${req.query.from}
       </body>

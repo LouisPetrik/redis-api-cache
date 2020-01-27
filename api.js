@@ -11,7 +11,7 @@ app.post('/', (req, res) => {
 	console.log(req.body.number)
 
 	res.send({
-		value: req.body.number * 2
+		result: req.body.number * 2
 	})
 })
 
